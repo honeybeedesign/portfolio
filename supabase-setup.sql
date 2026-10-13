@@ -4,8 +4,10 @@ create table if not exists public.photos (
  public_url text not null, caption text not null default '',
  rotation integer not null default 0 check (rotation in (0,90,180,270)),
  scale integer not null default 100 check (scale between 50 and 150),
- created_at timestamptz not null default now()
+ created_at timestamptz not null default now(),
+ sort_order integer not null default 0
 );
+alter table public.photos add column if not exists sort_order integer not null default 0;
 alter table public.photos enable row level security;
 drop policy if exists "Anyone can view published photos" on public.photos;
 create policy "Anyone can view published photos" on public.photos for select to anon, authenticated using (true);
