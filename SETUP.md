@@ -16,3 +16,12 @@ This GitHub Pages website uses Supabase for shared photo storage and a password-
 
 ## Privacy
 Uploaded images are public: anyone with the site or direct image URL can view them. Do not upload private images. Keep the Supabase service-role/secret key private.
+
+## Existing Supabase project: enable saved drag order
+Because this portfolio may already have a photos table, run this one-time migration in Supabase → SQL Editor:
+
+```sql
+alter table public.photos add column if not exists sort_order integer not null default 0;
+```
+
+The full `supabase-setup.sql` file also includes this migration.
