@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f5f2ec">
+<title>Stillroom — Photo Studio</title>
+<style>
+:root{--paper:#f5f2ec;--ink:#20211f;--muted:#777870;--line:#dcd8cf;--accent:#a8b5a0;--card:#fffefa}
+*{box-sizing:border-box} body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+header{padding:28px clamp(20px,5vw,76px);display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}
+.brand{font-family:Georgia,serif;font-size:26px;letter-spacing:-.04em}.brand span{color:#84927d}
+.topnote{font-size:11px;text-transform:uppercase;letter-spacing:.16em;color:var(--muted)}
+main{max-width:1440px;margin:auto;padding:clamp(30px,6vw,84px) clamp(20px,5vw,76px) 80px}
+.intro{display:flex;justify-content:space-between;gap:30px;align-items:end;margin-bottom:42px}.eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:15px}
+h1{font-family:Georgia,"Times New Roman",serif;font-size:clamp(42px,6vw,78px);line-height:.98;letter-spacing:-.055em;font-weight:400;margin:0;max-width:720px}
+.intro p{color:var(--muted);max-width:310px;line-height:1.65;font-size:14px;margin:0 0 4px}
+.toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:16px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-bottom:30px}
+button,.upload-label{font:inherit;cursor:pointer;border:1px solid var(--ink);background:var(--ink);color:white;padding:12px 17px;font-size:12px;letter-spacing:.04em;transition:.2s}
+button:hover,.upload-label:hover{background:#42443f}.secondary{background:transparent;color:var(--ink);border-color:var(--line)}.secondary:hover{background:#e9e5dc;color:var(--ink)}
+#fileInput{display:none}.toolbar-note{font-size:12px;color:var(--muted);margin-left:auto}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:34px 22px}
+.card{min-width:0}.photo-frame{position:relative;background:#e8e4db;aspect-ratio:4/5;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.photo-frame img{display:block;max-width:100%;max-height:100%;object-fit:contain;transition:transform .2s ease;user-select:none}
+.card-controls{display:flex;gap:7px;flex-wrap:wrap;padding:12px 0 0}.mini{padding:8px 10px;font-size:11px}.mini svg{vertical-align:middle}
+.size-control{display:flex;align-items:center;gap:8px;margin-left:auto;font-size:11px;color:var(--muted)}input[type=range]{width:90px;accent-color:#687661}
+.caption{width:100%;resize:vertical;min-height:40px;max-height:120px;border:0;border-bottom:1px solid var(--line);background:transparent;padding:12px 0 9px;font:14px/1.5 Georgia,serif;color:var(--ink);outline:none}.caption:focus{border-color:var(--ink)}.caption::placeholder{color:#9a9a91}
+.card-meta{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.remove{background:transparent;color:var(--muted);border:0;padding:3px;font-size:10px;text-decoration:underline}
+.empty{grid-column:1/-1;border:1px dashed #c9c4b9;min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px}
+.empty-mark{font-family:Georgia,serif;font-size:58px;color:#a4ad9d;line-height:1}.empty h2{font:32px Georgia,serif;font-weight:400;margin:18px 0 8px}.empty p{font-size:13px;color:var(--muted);line-height:1.6;max-width:330px;margin:0 0 20px}
+footer{border-top:1px solid var(--line);padding:22px clamp(20px,5vw,76px);display:flex;justify-content:space-between;gap:20px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+@media(max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.intro{align-items:start;flex-direction:column}.intro p{max-width:450px}}
+@media(max-width:560px){.grid{grid-template-columns:1fr;gap:30px}.toolbar-note{width:100%;margin:0}.size-control{margin-left:0}header{padding-top:22px;padding-bottom:22px}footer{flex-direction:column}}
+</style>
+</head>
+<body>
+<header><div class="brand">stillroom<span>.</span></div><div class="topnote">A personal photo collection</div></header>
+<main>
+<section class="intro"><div><div class="eyebrow">Your images, your eye</div><h1>A little space<br>for what you see.</h1></div><p>A quiet, considered home for your photographs. Add images, adjust their scale and angle, and give each one a few words.</p></section>
+<div class="toolbar">
+<label class="upload-label" for="fileInput">＋ Add photos</label><input id="fileInput" type="file" accept="image/*" multiple>
+<button class="secondary" id="sortBtn" type="button">Newest first ↕</button>
+<button class="secondary" id="exportBtn" type="button">Export captions</button>
+<span class="toolbar-note" id="countNote">Your collection · 0 photos</span>
+</div>
+<section class="grid" id="grid" aria-live="polite"></section>
+</main>
+<footer><span>Stillroom · Photo journal</span><span>Made for looking closer</span></footer>
+<script>
+const DB_NAME='stillroom-photo-db', STORE='photos';
+let db, items=[], newestFirst=true;
+const grid=document.getElementById('grid'), fileInput=document.getElementById('fileInput');
+function openDB(){return new Promise((resolve,reject)=>{const req=indexedDB.open(DB_NAME,1);req.onupgradeneeded=()=>req.result.createObjectStore(STORE,{keyPath:'id'});req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}
+function requestPromise(req){return new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}
+async function allItems(){return requestPromise(db.transaction(STORE,'readonly').objectStore(STORE).getAll())}
+async function save(item){return requestPromise(db.transaction(STORE,'readwrite').objectStore(STORE).put(item))}
+async function remove(id){return requestPromise(db.transaction(STORE,'readwrite').objectStore(STORE).delete(id))}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function emptyState(){grid.innerHTML=`<div class="empty"><div class="empty-mark">✳</div><h2>Start your collection.</h2><p>Choose a few photographs from your device. They'll appear here as a clean, editable gallery.</p><label class="upload-label" for="fileInput">＋ Choose photos</label></div>`}
+function render(){
+  const list=[...items].sort((a,b)=>newestFirst?b.created-a.created:a.created-b.created);
+  document.getElementById('countNote').textContent=`Your collection · ${items.length} photo${items.length===1?'':'s'}`;
+  if(!list.length){emptyState();return}
+  grid.innerHTML=list.map((it,i)=>`<article class="card" data-id="${it.id}">
+    <div class="photo-frame"><img src="${it.data}" alt="${esc(it.caption||'Photo')}" style="transform:rotate(${it.rotation||0}deg) scale(${(it.scale||100)/100})"></div>
+    <div class="card-controls">
+      <button class="secondary mini" data-action="rotate">↻ Rotate</button>
+      <button class="secondary mini" data-action="reset">Reset</button>
+      <label class="size-control">Scale <input type="range" min="50" max="150" value="${it.scale||100}" data-action="scale" aria-label="Photo scale"> ${it.scale||100}%</label>
+    </div>
+    <textarea class="caption" data-action="caption" placeholder="Write a note beneath this photograph…" aria-label="Photo caption">${esc(it.caption||'')}</textarea>
+    <div class="card-meta"><span>Image ${String(i+1).padStart(2,'0')}</span><button class="remove" data-action="delete">Remove</button></div>
+  </article>`).join('');
+}
+grid.addEventListener('click',async e=>{
+ const btn=e.target.closest('[data-action]');if(!btn)return;const card=btn.closest('.card'),it=items.find(x=>x.id===card.dataset.id);if(!it)return;
+ if(btn.dataset.action==='rotate'){it.rotation=((it.rotation||0)+90)%360;await save(it);render()}
+ if(btn.dataset.action==='reset'){it.rotation=0;it.scale=100;await save(it);render()}
+ if(btn.dataset.action==='delete'){if(confirm('Remove this photo from your collection?')){await remove(it.id);items=items.filter(x=>x.id!==it.id);render()}}
+});
+grid.addEventListener('input',async e=>{
+ const action=e.target.dataset.action,card=e.target.closest('.card');if(!card)return;const it=items.find(x=>x.id===card.dataset.id);if(!it)return;
+ if(action==='caption'){it.caption=e.target.value;await save(it)}
+ if(action==='scale'){it.scale=Number(e.target.value);const img=card.querySelector('img');img.style.transform=`rotate(${it.rotation||0}deg) scale(${it.scale/100})`;e.target.parentElement.lastChild.textContent=` ${it.scale}%`;await save(it)}
+});
+fileInput.addEventListener('change',async()=>{
+ const files=[...fileInput.files].filter(f=>f.type.startsWith('image/'));
+ for(const file of files){const data=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file)});
+ const it={id:crypto.randomUUID(),name:file.name,data,caption:'',rotation:0,scale:100,created:Date.now()+Math.random()};await save(it);items.push(it)}
+ fileInput.value='';render();
+});
+document.getElementById('sortBtn').addEventListener('click',()=>{newestFirst=!newestFirst;document.getElementById('sortBtn').textContent=newestFirst?'Newest first ↕':'Oldest first ↕';render()});
+document.getElementById('exportBtn').addEventListener('click',()=>{
+ const textData=items.map((it,i)=>`${i+1}. ${it.name||'Photo'}\n${it.caption||'(No caption)'}\nRotation: ${it.rotation||0}° · Scale: ${it.scale||100}%`).join('\n\n');
+ const blob=new Blob([textData||'No photos yet.'],{type:'text/plain'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='stillroom-captions.txt';a.click();URL.revokeObjectURL(url);
+});
+(async()=>{try{db=await openDB();items=await allItems();render()}catch(e){grid.innerHTML='<div class="empty"><h2>Storage unavailable</h2><p>Please open this site in a modern browser with local storage enabled.</p></div>'}})();
+</script>
+</body>
+</html>
